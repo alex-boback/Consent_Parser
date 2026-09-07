@@ -1,0 +1,12 @@
+[
+  {
+    "name": "6614",
+    "file": "C:\\Users\\ambob\\OneDrive - University of Virginia\\Work\\Parser_Test\\6614_FYEC Usable Students_AY25-26_Updated 050526_For_Parser(FYEC2025Students).csv",
+    "consent_values": ["Both"]
+  },
+  {
+    "name": "6881",
+    "file": "C:\\Users\\ambob\\OneDrive - University of Virginia\\Work\\Parser_Test\\6881_Participant Key AY25-26_For_Parser(Usable).csv",
+    "consent_values": ["Both", "Artifacts Only"]
+  }
+]

@@ -3,16 +3,67 @@
 Define any number of IRBs, choose which Consent values count for each, and merge
 consenting participants by Computing ID. Requires Python 3.10+.
 
-## Input schema
+````markdown
+## Required Headers
 
-Every CSV or Excel sheet must contain these headers:
+Every CSV or Excel sheet must contain the following headers:
 
 ```text
-First name,Last name,email,Computing ID,Subject ID,Professor,Consent
+First name, Last name, email, Computing ID, Subject ID, Professor, Consent
+````
+
+The parser expects **all of these fields to be present**.
+
+## Handling Missing Fields
+
+If any required information is missing, use the following rules:
+
+### First Name, Last Name, Email, and Professor
+
+If one of these fields is unavailable:
+
+* Add the required column to the sheet.
+* Fill missing values with `"None"`.
+* A `"None"` value will remain blank in the output **unless another input sheet contains a non-`None` value for the same Computing ID and field**.
+* If another sheet contains a valid value, that value will be used in the output.
+
+### Subject ID
+
+If Subject IDs are not already available:
+
+* Generate a unique Subject ID for each row.
+* In Excel, this can be done with:
+
+```excel
+=ROW()-1
 ```
 
-Header order and capitalization do not matter. Extra columns are ignored.
-Supported inputs: `.csv`, `.xlsx`, and `.xlsm`.
+* A separate Subject ID will be reported for each IRB in which a student's Computing ID appears.
+
+### Computing ID
+
+A Computing ID is **required** for every entry.
+
+* If an entry does not have a Computing ID, remove that entry from the sheet before running the parser.
+* The parser uses the Computing ID as the primary key for matching and joining records across files.
+
+## Additional Notes
+
+* Header **order does not matter**.
+* Header **capitalization does not matter**.
+* Extra columns are ignored by the parser.
+
+## Supported File Types
+
+The parser supports:
+
+* `.csv`
+* `.xlsx`
+* `.xlsm`
+
+```
+```
+
 
 ## Configure and run
 
