@@ -10,11 +10,13 @@ import re
 from typing import Iterable
 
 COLUMNS = ("First name", "Last name", "email", "Computing ID", "Subject ID", "Professor", "Consent")
-OUTPUT_COLUMNS = (*COLUMNS[:-1], "IRBs")
+PERSON_COLUMNS = ("First name", "Last name", "email", "Computing ID", "Professor")
+OUTPUT_COLUMNS = (*PERSON_COLUMNS, "IRBs")
 
 
 def clean(value: object) -> str:
-    return "" if value is None else str(value).strip()
+    text = "" if value is None else str(value).strip()
+    return "" if text.casefold() == "none" else text
 
 
 def normalized(value: object) -> str:
@@ -28,6 +30,10 @@ class IRB:
     consent_values: list[str]
     sheet: str | None = None
     header_row: int = 1
+
+
+def output_columns(irbs: Iterable[IRB]) -> tuple[str, ...]:
+    return (*OUTPUT_COLUMNS, *(f"Subject ID ({clean(irb.name)})" for irb in irbs))
 
 
 def _cell_text(cell: object) -> str:
@@ -112,6 +118,8 @@ def parse_irb(irb: IRB) -> list[dict[str, str]]:
 
 def parse_consent_files(irbs: Iterable[IRB]) -> list[dict[str, str]]:
     """Include anyone consenting to at least one IRB; merge only by Computing ID."""
+    irbs = list(irbs)
+    columns = output_columns(irbs)
     people = {}
     memberships = {}
     names = set()
@@ -123,11 +131,12 @@ def parse_consent_files(irbs: Iterable[IRB]) -> list[dict[str, str]]:
         for record in parse_irb(irb):
             key = normalized(record["Computing ID"])
             if key not in people:
-                people[key] = {column: "" for column in OUTPUT_COLUMNS}
+                people[key] = {column: "" for column in columns}
                 memberships[key] = []
             person = people[key]
-            for column in COLUMNS[:-1]:
-                value = record[column]
+            details = {column: record[column] for column in PERSON_COLUMNS}
+            details[f"Subject ID ({name})"] = record["Subject ID"]
+            for column, value in details.items():
                 if value and person[column] and normalized(value) != normalized(person[column]):
                     raise ValueError(
                         f"{name}: conflicting {column} for Computing ID {key!r} "
@@ -160,10 +169,13 @@ def load_irbs(path: str | Path) -> list[IRB]:
     return irbs
 
 
-def write_csv(rows: Iterable[dict[str, str]], path: str | Path) -> None:
+def write_csv(rows: Iterable[dict[str, str]], path: str | Path,
+              irbs: Iterable[IRB] | None = None) -> None:
     """Write an Excel-compatible CSV without overwriting an existing file."""
+    rows = list(rows)
+    columns = output_columns(irbs) if irbs is not None else (tuple(rows[0]) if rows else OUTPUT_COLUMNS)
     with Path(path).open("x", newline="", encoding="utf-8-sig") as handle:
-        writer = csv.DictWriter(handle, fieldnames=OUTPUT_COLUMNS)
+        writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
         writer.writerows(rows)
 
@@ -176,8 +188,9 @@ def main() -> None:
     try:
         if args.output.suffix.lower() != ".csv":
             raise ValueError("Output must have a .csv extension.")
-        rows = parse_consent_files(load_irbs(args.config))
-        write_csv(rows, args.output)
+        irbs = load_irbs(args.config)
+        rows = parse_consent_files(irbs)
+        write_csv(rows, args.output, irbs)
     except (OSError, ValueError, TypeError, ImportError) as exc:
         parser.exit(2, f"Error: {exc}\n")
     print(f"Wrote {len(rows)} participants to {args.output}")

@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from consent_parser import COLUMNS, OUTPUT_COLUMNS, IRB, load_irbs, parse_irb, parse_consent_files, write_csv
+from consent_parser import COLUMNS, PERSON_COLUMNS, OUTPUT_COLUMNS, IRB, load_irbs, parse_irb, parse_consent_files, write_csv
 
 
 class ConsentTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class ConsentTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[0]["IRBs"], "A; B")
         self.assertEqual(rows[1]["IRBs"], "C")
-        self.assertEqual(rows[0]["Subject ID"], "001")
+        self.assertEqual(rows[0]["Subject ID (A)"], "001")
 
     def test_only_computing_id_joins(self):
         irb = self.irb("A", [self.row(), self.row(), self.row("other")])
@@ -55,6 +55,52 @@ class ConsentTests(unittest.TestCase):
             with self.subTest(column=column), self.assertRaisesRegex(ValueError, f"conflicting {column}"):
                 parse_consent_files([self.irb("A", [self.row(), self.row(**{column: "Other"})])])
 
+    def test_none_is_filled_by_real_values_in_either_order(self):
+        columns = ("First name", "Last name", "email", "Subject ID", "Professor")
+        for null in ("None", " NONE ", "none"):
+            with self.subTest(null=null):
+                a = self.irb("A", [self.row(**dict.fromkeys(columns, null))])
+                b = self.irb("B", [self.row()])
+                for irbs in ([a, b], [b, a]):
+                    result = parse_consent_files(irbs)[0]
+                    self.assertEqual([result[column] for column in PERSON_COLUMNS],
+                                     [dict(zip(COLUMNS, self.row()))[column] for column in PERSON_COLUMNS])
+                result = parse_consent_files([a])[0]
+                self.assertTrue(all(result[column] == "" for column in (*PERSON_COLUMNS[:3], "Professor", "Subject ID (A)")))
+
+    def test_subject_ids_are_separate_per_irb(self):
+        a = self.irb("A", [self.row(**{"Subject ID": "None"}), self.row()])
+        b = self.irb("B", [self.row(**{"Subject ID": "002"}), self.row("other")])
+        c = self.irb("C", [self.row(consent="No", **{"Subject ID": "003"})])
+        for irbs in ([a, b, c], [c, b, a]):
+            rows = parse_consent_files(irbs)
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]["Subject ID (A)"], "001")
+            self.assertEqual(rows[0]["Subject ID (B)"], "002")
+            self.assertEqual(rows[0]["Subject ID (C)"], "")
+            self.assertEqual(rows[1]["Subject ID (A)"], "")
+            self.assertNotIn("Subject ID", rows[0])
+
+    def test_subject_id_none_does_not_use_another_irb(self):
+        a = self.irb("A", [self.row(**{"Subject ID": "None"})])
+        b = self.irb("B", [self.row()])
+        row = parse_consent_files([a, b])[0]
+        self.assertEqual(row["Subject ID (A)"], "")
+        self.assertEqual(row["Subject ID (B)"], "001")
+
+    def test_empty_export_keeps_irb_columns(self):
+        irbs = [self.irb("A", []), self.irb("B", [])]
+        output = self.directory / "empty.csv"
+        write_csv(parse_consent_files(irbs), output, irbs)
+        with output.open(encoding="utf-8-sig", newline="") as handle:
+            self.assertEqual(list(csv.reader(handle)),
+                             [[*OUTPUT_COLUMNS, "Subject ID (A)", "Subject ID (B)"]])
+
+    def test_none_id_and_consent_are_missing(self):
+        with self.assertRaisesRegex(ValueError, "no Computing ID"):
+            parse_irb(self.irb("A", [self.row("None")]))
+        self.assertEqual(parse_irb(self.irb("B", [self.row(consent="None")])), [])
+
     def test_configuration_and_csv_export(self):
         self.irb("A", [self.row()])
         config = self.directory / "irbs.json"
@@ -64,7 +110,7 @@ class ConsentTests(unittest.TestCase):
         write_csv(rows, output)
         with output.open(encoding="utf-8-sig", newline="") as handle:
             reader = csv.DictReader(handle)
-            self.assertEqual(reader.fieldnames, list(OUTPUT_COLUMNS))
+            self.assertEqual(reader.fieldnames, [*OUTPUT_COLUMNS, "Subject ID (A)"])
             self.assertEqual(list(reader), rows)
         with self.assertRaises(FileExistsError):
             write_csv(rows, output)
@@ -105,7 +151,7 @@ class ConsentTests(unittest.TestCase):
         book.close()
         rows = parse_consent_files([IRB(name, path, ["Both"], name, 2) for name in ("A", "B")])
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["Subject ID"], "00012")
+        self.assertEqual(rows[0]["Subject ID (A)"], "00012")
         self.assertEqual(rows[0]["IRBs"], "A; B")
         with self.assertRaises(ValueError):
             parse_irb(IRB("Missing", path, ["Both"], "Missing"))

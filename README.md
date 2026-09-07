@@ -44,17 +44,24 @@ different worksheets in the same workbook. Do not specify `sheet` for CSV files.
 The output has one row per consenting Computing ID, with these columns:
 
 ```text
-First name,Last name,email,Computing ID,Subject ID,Professor,IRBs
+First name,Last name,email,Computing ID,Professor,IRBs,Subject ID (6614),Subject ID (6881)
 ```
 
+- Each configured IRB gets a `Subject ID (<IRB name>)` column, in configuration order.
+  It is blank when the person has no consenting row or no Subject ID for that IRB.
+  Subject IDs are never copied between IRBs.
 - Include people who consent to at least one configured IRB.
 - Merge only matching, nonempty Computing IDs; email and names are never join keys.
 - Comparisons ignore case and repeated/leading/trailing whitespace.
+- The text `None` (ignoring case and surrounding whitespace) is treated as blank.
+  A real value from another consenting row fills it regardless of input order;
+  if no real value exists, the output cell stays blank.
 - Only consenting rows contribute participant details. Blank details can be filled
   from another consenting row. Identical duplicates are collapsed.
 - `IRBs` lists the studies the person consented to, separated by semicolons.
 - Conflicting nonblank participant details raise an error identifying the field,
-  Computing ID, and IRB. Subject IDs and Professors must agree across merged rows.
+  Computing ID, and IRB. Professors must agree across merged rows. Subject IDs
+  may differ between IRBs; conflicting IDs within the same IRB still raise an error.
 - A consenting row without Computing ID raises an error.
 
 Results are sorted by last name, first name, then Computing ID. Existing output
@@ -75,8 +82,10 @@ irbs = [
     IRB("9000", "9000.csv", ["Yes"]),
 ]
 people = parse_consent_files(irbs)
-write_csv(people, "consented.csv")
+write_csv(people, "consented.csv", irbs)
 ```
+
+Pass `irbs` to `write_csv` to retain all IRB columns even when the results are empty.
 
 Use `parse_irb(irb)` to get consenting rows for just one IRB.
 The previous fixed two-file API and command have been replaced by this interface.
