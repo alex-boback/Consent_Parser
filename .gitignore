@@ -1,0 +1,38 @@
+# Python caches and test output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local secrets
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# Local IRB configuration (keep irbs.example.json tracked)
+irbs.json
+
+# Participant data and generated results
+*.csv
+*.tsv
+*.xls
+*.xlsx
+*.xlsm
+data/
+output/
+
+# Temporary test directories
+/tmp*/
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+~$*

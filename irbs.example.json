@@ -1,0 +1,12 @@
+[
+  {
+    "name": "6614",
+    "file": "6614.xlsx",
+    "consent_values": ["Both"]
+  },
+  {
+    "name": "6881",
+    "file": "6881.xlsx",
+    "consent_values": ["Both", "Survey Only"]
+  }
+]
