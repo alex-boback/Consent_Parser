@@ -90,3 +90,38 @@ Pass `irbs` to `write_csv` to retain all IRB columns even when the results are e
 Use `parse_irb(irb)` to get consenting rows for just one IRB.
 The previous fixed two-file API and command have been replaced by this interface.
 Run tests with `python -m unittest -v`.
+
+## Filter response data by consented Computing IDs
+
+Use `response_parser.py` to keep response rows whose Computing ID appears in
+the consent parser's output:
+
+```powershell
+python response_parser.py responses.xlsx consented.csv -o filtered_responses.xlsx
+```
+
+Both inputs accept `.csv`, `.xlsx`, or `.xlsm` files and must have exactly one
+`Computing ID` column. Other columns may contain any response data. The output
+is an Excel (`.xlsx`) file containing the original response headers and matching rows, in
+their original order. Repeated responses are retained. Response text, including
+whitespace and literal `None` answers, is preserved.
+
+IDs and the Computing ID header are matched without regard to capitalization or
+repeated/leading/trailing whitespace, as in the consent parser. Blank IDs and
+`None` IDs never match. Membership in the consent file is the only filter; all
+IRBs in that file qualify. No consent columns are added to the response data.
+
+By default, each input uses its first worksheet and first row as the header.
+For other worksheets or header positions:
+
+```powershell
+python response_parser.py responses.xlsx consented.csv -o filtered_responses.xlsx --response-sheet "Responses" --response-header-row 2
+```
+
+`--consent-sheet` and `--consent-header-row` configure the ID-list input in the
+same way. Worksheet options apply only to Excel inputs. Excel inputs must be
+values-only; formulas and error cells are rejected. Output stores values as text
+in a worksheet named `Responses`, preserving leading zeros and literal answers
+without copying source workbook formatting. The default output filename is
+`filtered_responses.xlsx`. Existing output files are never overwritten. If no
+responses match, the output contains only the response header.
